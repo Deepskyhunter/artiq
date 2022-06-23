@@ -12,7 +12,7 @@ from sipyco.logging_tools import log_with_name
 from sipyco.asyncio_tools import SignalHandler
 
 from artiq.coredevice.comm_mgmt import Request, Reply
-
+from sipyco.keepalive import async_open_connection
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -38,7 +38,13 @@ async def get_logs_sim(host):
 
 
 async def get_logs(host):
-    reader, writer = await asyncio.open_connection(host, 1380)
+    reader, writer = await async_open_connection(
+        host,
+        1380,
+        after_idle=1,
+        interval=1,
+        max_fails=3,
+    )
     writer.write(b"ARTIQ management\n")
     endian = await reader.readexactly(1)
     if endian == b"e":
@@ -47,6 +53,7 @@ async def get_logs(host):
         endian = ">"
     else:
         raise IOError("Incorrect reply from device: expected e/E.")
+    log_with_name("core_log", logging.INFO, "Connected to the core device (%s)",host)
     writer.write(struct.pack("B", Request.PullLog.value))
     await writer.drain()
 
