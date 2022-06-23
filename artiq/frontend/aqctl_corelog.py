@@ -57,26 +57,29 @@ async def get_logs(host):
     writer.write(struct.pack("B", Request.PullLog.value))
     await writer.drain()
 
-    while True:
-        length, = struct.unpack(endian + "l", await reader.readexactly(4))
-        log = await reader.readexactly(length)
+    try:
+        while True:
+            length, = struct.unpack(endian + "l", await reader.readexactly(4))
+            log = await reader.readexactly(length)
 
-        for line in log.decode("utf-8").splitlines():
-            m = re.match(r"^\[.+?\] (TRACE|DEBUG| INFO| WARN|ERROR)\((.+?)\): (.+)$", line)
-            levelname = m.group(1)
-            if levelname == 'TRACE':
-                level = logging.TRACE
-            elif levelname == 'DEBUG':
-                level = logging.DEBUG
-            elif levelname == ' INFO':
-                level = logging.INFO
-            elif levelname == ' WARN':
-                level = logging.WARN
-            elif levelname == 'ERROR':
-                level = logging.ERROR
-            name = 'firmware.' + m.group(2).replace('::', '.')
-            text = m.group(3)
-            log_with_name(name, level, text)
+            for line in log.decode("utf-8").splitlines():
+                m = re.match(r"^\[.+?\] (TRACE|DEBUG| INFO| WARN|ERROR)\((.+?)\): (.+)$", line)
+                levelname = m.group(1)
+                if levelname == 'TRACE':
+                    level = logging.TRACE
+                elif levelname == 'DEBUG':
+                    level = logging.DEBUG
+                elif levelname == ' INFO':
+                    level = logging.INFO
+                elif levelname == ' WARN':
+                    level = logging.WARN
+                elif levelname == 'ERROR':
+                    level = logging.ERROR
+                name = 'firmware.' + m.group(2).replace('::', '.')
+                text = m.group(3)
+                log_with_name(name, level, text)
+    finally:
+        pass
 
 
 def main():
@@ -96,7 +99,7 @@ def main():
                 loop.run_until_complete(server.start(common_args.bind_address_from_args(args), args.port))
                 try:
                     _, pending = loop.run_until_complete(asyncio.wait(
-                        [signal_handler.wait_terminate(), server.wait_terminate()],
+                        [signal_handler.wait_terminate(), server.wait_terminate(), get_logs_task],
                         return_when=asyncio.FIRST_COMPLETED))
                     for task in pending:
                         task.cancel()
