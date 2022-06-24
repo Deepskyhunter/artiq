@@ -53,7 +53,6 @@ async def get_logs(host):
         endian = ">"
     else:
         raise IOError("Incorrect reply from device: expected e/E.")
-    log_with_name("core_log", logging.INFO, "Connected to the core device (%s)",host)
     writer.write(struct.pack("B", Request.PullLog.value))
     await writer.drain()
 
